@@ -1,14 +1,17 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using MongoDB.Bson.Serialization.Attributes;
+using MongoDB.Bson.Serialization.IdGenerators;
 
 namespace Ncqrs.Eventing.Storage.MongoDB
 {
     public class MongoCommit
     {
+        [BsonId(IdGenerator = typeof(CombGuidGenerator))]
         public Guid CommitId { get; set; }
-        public Guid EventSourceId { get; set; }
-        public long FromVersion { get; set; }
-        public long ToVersion { get; set; }
-        public bool Processed { get; set; }
-        public Guid[] Events { get; set; }
+        
+        public List<MongoStoredEvent> Events { get; set;}
     }
 }

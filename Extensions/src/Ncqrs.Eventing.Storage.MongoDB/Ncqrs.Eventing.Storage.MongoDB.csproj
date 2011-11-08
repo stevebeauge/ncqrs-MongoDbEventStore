@@ -81,8 +81,8 @@
   <ItemGroup>
     <Compile Include="MongoCommit.cs" />
     <Compile Include="MongoDBEventStore.cs" />
-    <Compile Include="MongoEventStream.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="MongoStoredEvent.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
