@@ -7,6 +7,8 @@ using MongoDB.Driver;
 using MongoDB.Driver.Builders;
 using MongoDB.Bson.Serialization;
 using System.Reflection;
+using System.Threading.Tasks;
+using System.Diagnostics.Contracts;
 
 namespace Ncqrs.Eventing.Storage.MongoDB
 {
@@ -23,11 +25,35 @@ namespace Ncqrs.Eventing.Storage.MongoDB
             string collectionName="Commits"
             )
         {
+            Contract.Requires<ArgumentNullException>(mongoServer != null);
+            Contract.Requires<ArgumentNullException>(!string.IsNullOrEmpty(databaseName));
+            Contract.Requires<ArgumentNullException>(!string.IsNullOrEmpty(collectionName));
+
             _mongoServer = mongoServer;
             _databaseName = databaseName;
             _collectionName = collectionName;
             _safeMode = safeMode;
-            SetupClassMap();
+
+            // Both operations can take a while
+            Task.WaitAll(
+                Task.Factory.StartNew(()=>SetupStore(mongoServer, databaseName, collectionName)),
+                Task.Factory.StartNew(SetupClassMap)
+            );
+        }
+
+        private void SetupStore(MongoServer mongoServer, string databaseName, string collectionName)
+        {
+            Contract.Requires<ArgumentNullException>(mongoServer != null);
+            Contract.Requires<ArgumentNullException>(!string.IsNullOrEmpty(databaseName));
+            Contract.Requires<ArgumentNullException>(!string.IsNullOrEmpty(collectionName));
+
+            mongoServer.Connect();
+
+            var db = _mongoServer.GetDatabase(databaseName);
+            var coll = db.GetCollection(collectionName);
+            coll.EnsureIndex("Events.EventSourceId", "Events.EventSequence");
+
+            mongoServer.Disconnect();
         }
 
         private void SetupClassMap()
@@ -51,15 +77,17 @@ namespace Ncqrs.Eventing.Storage.MongoDB
 
             var reg2 = typeof(BsonClassMap);
             var regMethod = reg2.GetMethod("RegisterClassMap", new Type[] {  });
-            var regMethodsGeneric = eventTypes.Select(et => regMethod.MakeGenericMethod(et));
 
-            foreach (var registerMethod in regMethodsGeneric)
-            {
-                registerMethod.Invoke(null, null);
-            }
+
+            eventTypes
+                .AsParallel()
+                .ForAll( et=>regMethod.MakeGenericMethod(et).Invoke(null,null));
+            
         }
         public CommittedEventStream ReadFrom(Guid eventSourceId, long minVersion, long maxVersion)
         {
+            Contract.Requires<ArgumentException>(eventSourceId != Guid.Empty);
+            
             _mongoServer.Connect();
 
             var db = _mongoServer.GetDatabase(_databaseName);
